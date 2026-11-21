@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101522">
+  <title>NAS Media Explorer</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-icon">▣</span><span>NAS <b>MEDIA</b></span></a>
+    <div class="connection"><span id="statusDot" class="dot"></span><span id="statusText">Desconectado</span></div>
+  </header>
+
+  <main class="layout">
+    <section class="intro">
+      <div>
+        <p class="eyebrow">SUA BIBLIOTECA PESSOAL</p>
+        <h1>Media Explorer</h1>
+        <p class="subtitle">Explore imagens e vídeos armazenados no seu NAS.</p>
+      </div>
+      <button id="refreshBtn" class="refresh-btn" title="Atualizar">↻ <span>Atualizar</span></button>
+    </section>
+
+    <section class="toolbar">
+      <div class="breadcrumbs" id="breadcrumbs"><span>Carregando…</span></div>
+      <label class="search">
+        <span>⌕</span>
+        <input id="searchInput" type="search" placeholder="Pesquisar arquivos..." autocomplete="off">
+      </label>
+    </section>
+
+    <section class="filters">
+      <button class="filter active" data-filter="all">Tudo</button>
+      <button class="filter" data-filter="image">Imagens</button>
+      <button class="filter" data-filter="video">Vídeos</button>
+      <span id="itemCount" class="item-count"></span>
+    </section>
+
+    <section id="content" class="gallery" aria-live="polite">
+      <div class="empty">Conectando ao NAS…</div>
+    </section>
+  </main>
+
+  <div id="viewer" class="viewer hidden" role="dialog" aria-modal="true" aria-label="Visualizador">
+    <button id="closeViewer" class="close-viewer" aria-label="Fechar">×</button>
+    <button id="prevBtn" class="viewer-nav prev" aria-label="Anterior">‹</button>
+    <div id="viewerContent" class="viewer-content"></div>
+    <button id="nextBtn" class="viewer-nav next" aria-label="Próximo">›</button>
+    <div id="viewerCaption" class="viewer-caption"></div>
+  </div>
+
+  <footer>NAS Media Explorer <span>•</span> Acesso somente para visualização</footer>
+</body>
+</html>
