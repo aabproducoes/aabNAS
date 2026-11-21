@@ -1,4 +1,326 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NAS Gallery</title><link rel="stylesheet" href="style.css"><script src="config.js"></script><script defer src="app.js"></script></head><body>
-<header><a class="brand" href="#">NAS <b>GALLERY</b></a><button id="adminOpen">Admin</button></header><main><section class="hero"><small>PERSONAL MEDIA COLLECTION</small><h1 id="siteTitle">Explore my world.</h1><p id="siteDescription">A collection of images and videos, hosted on my NAS.</p></section><section id="galleryGrid" class="galleries">Connecting…</section><section id="galleryView" class="hidden"><button id="back">← All galleries</button><h2 id="galleryTitle"></h2><p id="galleryDescription"></p><div id="mediaGrid" class="media"></div><button id="more" class="hidden">Load more</button></section></main><footer>NAS Gallery · Public media collection</footer>
-<div id="viewer" class="viewer hidden"><button id="closeViewer">×</button><button id="prev">‹</button><div id="viewerBody"></div><button id="next">›</button><p id="viewerName"></p></div>
-<div id="admin" class="overlay hidden"><div class="panel"><button class="x" data-close="admin">×</button><div id="login"><h2>Administrator</h2><p>Sign in to manage this site.</p><form id="loginForm"><input id="password" type="password" placeholder="Admin password" required><button>Unlock</button><p id="loginError" class="error"></p></form></div><div id="dashboard" class="hidden"><div class="row"><h2>Manage site</h2><button id="logout">Log out</button></div><nav><button data-tab="gTab">Galleries</button><button data-tab="aTab">Appearance</button></nav><section id="gTab"><div class="row"><h3>Galleries</h3><button id="addGallery">＋ New gallery</button></div><div id="adminList"></div><form id="galleryForm" class="editor hidden"><h3 id="formTitle">New gallery</h3><input id="gid" type="hidden"><label>Title<input id="gtitle" maxlength="80" required></label><label>Description<textarea id="gdesc" maxlength="300"></textarea></label><label>NAS folder<select id="folder" required></select></label><button type="button" id="browse">Browse folders</button><div id="folderBrowser" class="hidden"><div id="folderPath"></div><div id="folderList"></div></div><div class="row"><button type="button" id="cancel">Cancel</button><button>Save gallery</button></div><p id="gerror" class="error"></p></form></section><section id="aTab" class="hidden"><h3>Appearance</h3><form id="appearance"><label>Site title<input id="sTitle"></label><label>Site description<input id="sDesc"></label><label>Theme preset<select id="theme"><option value="midnight">Midnight</option><option value="ocean">Ocean</option><option value="forest">Forest</option><option value="sunset">Sunset</option><option value="light">Light</option></select></label><label>Background color<input id="bgColor" type="color"></label><label>Background image URL<input id="bgImage" type="url" placeholder="https://..."></label><button>Save appearance</button><p id="aMessage"></p></form></section></div></div></div></body></html>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meu NAS - Painel Tailscale</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container { width: 100%; max-width: 800px; }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #334155;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    h1 { font-size: 1.5rem; }
+    .host-badge {
+      background: #1e293b;
+      color: #38bdf8;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      border: 1px solid #334155;
+    }
+
+    .notice {
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 4px solid var(--accent);
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.15s, background 0.15s;
+      position: relative;
+    }
+
+    .card:hover { transform: translateY(-2px); background: var(--card-hover); }
+
+    .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .card-path { font-size: 0.85rem; color: var(--text-muted); font-family: monospace; word-break: break-all; margin-bottom: 1rem; }
+
+    .card-actions { display: flex; gap: 0.5rem; margin-top: auto; }
+
+    .btn {
+      padding: 0.5rem 0.85rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      text-align: center;
+      transition: background 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: white; flex: 1; }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-copy { background: #475569; color: white; }
+    .btn-copy:hover { background: #64748b; }
+
+    .btn-delete {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0.2rem 0.4rem;
+    }
+    .btn-delete:hover { color: var(--danger); }
+
+    /* Botão Flutuante + */
+    .fab {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-size: 2rem;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .fab:hover { background: var(--accent-hover); transform: scale(1.06); }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 50;
+    }
+    .modal-backdrop.active { display: flex; }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .modal h2 { margin-bottom: 1rem; font-size: 1.25rem; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.35rem; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 0.6rem;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.25rem; }
+    .btn-cancel { background: #334155; color: white; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Asustor NAS</h1>
+      <span class="host-badge">as1102tl-b6d5.taile10636.ts.net</span>
+    </header>
+
+    <div class="notice">
+      Certifique-se de que o <strong>Tailscale</strong> está ativo no seu dispositivo antes de abrir os links abaixo.
+    </div>
+
+    <div class="grid" id="cardsGrid"></div>
+  </div>
+
+  <!-- Botão + -->
+  <button class="fab" id="openModalBtn" title="Adicionar pasta ou serviço">+</button>
+
+  <!-- Modal de Adição -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <h2>Adicionar Atalho do NAS</h2>
+      <form id="addForm">
+        <div class="form-group">
+          <label for="titleInput">Título</label>
+          <input type="text" id="titleInput" placeholder="Ex: Fotos, Filmes, ADM, Documentos" required>
+        </div>
+
+        <div class="form-group">
+          <label for="typeSelect">Tipo de Acesso</label>
+          <select id="typeSelect">
+            <option value="web">Web / Porta ou Caminho HTTP (ex: :8000 ou /portal)</option>
+            <option value="smb">Pasta de Rede SMB (ex: /Public ou /Fotos)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="pathInput">Pasta ou Porta/Caminho</label>
+          <input type="text" id="pathInput" placeholder="Ex: :8000 ou /Media" required>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-cancel" id="cancelBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const NAS_HOST = "as1102tl-b6d5.taile10636.ts.net";
+    const STORAGE_KEY = "nas_tailscale_shortcuts_v1";
+
+    // Atalhos iniciais padrão
+    const defaultItems = [
+      { id: 1, title: "Painel ADM Asustor", type: "web", path: ":8000" },
+      { id: 2, title: "Pasta Public (SMB)", type: "smb", path: "/Public" },
+      { id: 3, title: "Pasta Home (SMB)", type: "smb", path: "/home" }
+    ];
+
+    let items = JSON.parse(localStorage.getItem(STORAGE_KEY)) || defaultItems;
+
+    const grid = document.getElementById("cardsGrid");
+    const modal = document.getElementById("modalBackdrop");
+    const form = document.getElementById("addForm");
+
+    function saveItems() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+
+    function buildTarget(item) {
+      let cleanPath = item.path.trim();
+      if (item.type === "web") {
+        if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) return cleanPath;
+        if (!cleanPath.startsWith(":") && !cleanPath.startsWith("/")) cleanPath = "/" + cleanPath;
+        return `http://${NAS_HOST}${cleanPath}`;
+      } else {
+        // Caminho SMB para copiar ou abrir
+        const folder = cleanPath.replace(/^\/+/, "");
+        return `\\\\${NAS_HOST}\\${folder}`;
+      }
+    }
+
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.textContent;
+        btn.textContent = "Copiado!";
+        setTimeout(() => btn.textContent = original, 1500);
+      });
+    }
+
+    function deleteItem(id) {
+      items = items.filter(i => i.id !== id);
+      saveItems();
+      render();
+    }
+
+    function render() {
+      grid.innerHTML = "";
+      items.forEach(item => {
+        const target = buildTarget(item);
+        const card = document.createElement("div");
+        card.className = "card";
+
+        card.innerHTML = `
+          <button class="btn-delete" title="Remover" onclick="deleteItem(${item.id})">&times;</button>
+          <div>
+            <div class="card-title">${item.title}</div>
+            <div class="card-path">${target}</div>
+          </div>
+          <div class="card-actions">
+            ${item.type === "web"
+              ? `<a href="${target}" target="_blank" class="btn btn-primary">Abrir</a>`
+              : `<button class="btn btn-primary" onclick="copyText('${target.replace(/\\/g, "\\\\")}', this)">Copiar Caminho</button>`
+            }
+            <button class="btn btn-copy" onclick="copyText('${target.replace(/\\/g, "\\\\")}', this)">Copiar</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    document.getElementById("openModalBtn").onclick = () => modal.classList.add("active");
+    document.getElementById("cancelBtn").onclick = () => modal.classList.remove("active");
+    modal.onclick = (e) => { if (e.target === modal) modal.classList.remove("active"); };
+
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const title = document.getElementById("titleInput").value.trim();
+      const type = document.getElementById("typeSelect").value;
+      const path = document.getElementById("pathInput").value.trim();
+
+      if (!title || !path) return;
+
+      items.push({ id: Date.now(), title, type, path });
+      saveItems();
+      render();
+      form.reset();
+      modal.classList.remove("active");
+    };
+
+    render();
+  </script>
+</body>
+</html>
