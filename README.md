@@ -1,47 +1,49 @@
-# NAS Media Explorer
+# NAS Gallery Platform
 
-Site estático para GitHub Pages + API somente de leitura no ASUSTOR.
+Public GitHub Pages frontend + Flask API on the ASUSTOR NAS.
 
-## O que faz
-- Lista pastas e arquivos de imagem/vídeo.
-- Abre imagens e reproduz vídeos no navegador.
-- Pesquisa por nome e filtra imagens/vídeos.
-- Não oferece upload, exclusão, renomeação ou edição.
+## Features
+- Public galleries with title, description and a selected NAS folder.
+- Admin password protects gallery creation/editing/removal and appearance changes.
+- Theme presets: Midnight, Ocean, Forest, Sunset and Light.
+- Custom background color and HTTPS background image URL.
+- Image grid with lazy-loaded thumbnails; media listing is paginated in batches of 40.
+- Fullscreen image viewer and browser video player.
+- Server-side protected API endpoints for file rename and delete. Gallery removal only removes the listing, never the NAS folder.
 
-## 1. Publicar o site
-1. Crie um repositório no GitHub chamado `NAS-Media-Explorer`.
-2. Envie `index.html`, `style.css`, `config.js` e `app.js` para a raiz do repositório.
-3. Em Settings > Pages, escolha `Deploy from a branch`, branch `main`, pasta `/root`.
-4. Edite `config.js` e troque `API_BASE` pelo endereço HTTPS do seu ASUSTOR na sua rede Tailscale.
+## 1. GitHub Pages
+Upload `index.html`, `style.css`, `app.js`, `config.js` to the root of a GitHub repository. Enable Settings > Pages > Deploy from a branch > `main` > `/ (root)`.
+Edit `config.js` and set `API_BASE` to your public HTTPS API hostname. This URL is public; do not put a password in this file.
 
-## 2. Preparar o ASUSTOR
-É necessário ter Python 3 e pip disponíveis no NAS (ou executar o servidor em um container).
-Copie a pasta `nas-server` para o NAS e instale as dependências:
+## 2. ASUSTOR API
+Install Python 3 and pip (or run the server in a supported container). Copy the `server` folder to the NAS. Confirm the actual shared-folder path in ADM first. Example only:
 
-    python3 -m pip install -r requirements.txt
+```bash
+python3 -m pip install -r requirements.txt
+export NAS_MEDIA_ROOT="/volume1/Media"
+export NAS_GALLERY_DATA="/volume1/home/aab/.nas-gallery"
+export NAS_GALLERY_ADMIN_PASSWORD='CHOOSE-A-LONG-UNIQUE-PASSWORD'
+export NAS_GALLERY_ORIGIN='https://YOUR-USERNAME.github.io'
+python3 server.py
+```
 
-Defina `NAS_MEDIA_ROOT` para a pasta que contém sua mídia. Exemplo (confirme o caminho real no ADM):
+Use the exact GitHub Pages origin without repository path or trailing slash. Keep the process running for the first test. Set these environment variables persistently when configuring the service/container.
 
-    export NAS_MEDIA_ROOT="/share/Media"
-    export ALLOWED_ORIGIN="https://SEU-USUARIO.github.io"
-    python3 server.py
+## 3. Public HTTPS with Cloudflare Tunnel
+A stable named tunnel normally requires a domain added to Cloudflare:
+1. Add your domain to Cloudflare and follow its nameserver setup.
+2. Create a Tunnel in the Cloudflare Zero Trust dashboard.
+3. Install `cloudflared` on the NAS or run it in a supported container.
+4. Add a public hostname such as `gallery-api.yourdomain.com` routed to `http://127.0.0.1:8765`.
+5. Run the tunnel persistently and set `API_BASE` in `config.js` to `https://gallery-api.yourdomain.com`.
 
-O servidor escuta somente em `127.0.0.1:8765`, não diretamente na rede.
+Temporary connectivity test only: `cloudflared tunnel --url http://127.0.0.1:8765` creates a temporary `trycloudflare.com` URL that changes after restart. Do not open router ports. Tailscale Serve is not the right tool for a public site because it serves tailnet users; Cloudflare Tunnel provides public ingress.
 
-## 3. Acesso remoto seguro com Tailscale
-Instale e conecte o Tailscale no NAS e nos dispositivos que usarão o site.
-Com o Tailscale ativo no NAS, configure o Tailscale Serve para encaminhar HTTPS para a porta local 8765. O comando exato depende da versão do Tailscale/ADM; normalmente:
-
-    tailscale serve --bg 8765
-
-Use o nome HTTPS mostrado pelo Tailscale como `API_BASE` em `config.js`.
-Mantenha as regras de acesso do tailnet restritas aos seus próprios dispositivos/usuários. Não configure Funnel nem encaminhamento de porta no roteador para esta API.
-
-**Importante:** como o navegador acessa o NAS diretamente, o dispositivo que abre o GitHub Pages também precisa estar conectado ao Tailscale para visualizar a mídia fora da rede local.
-
-## Observações
-- `NAS_MEDIA_ROOT` deve apontar para a pasta compartilhada correta do seu ADM.
-- `ALLOWED_ORIGIN` deve ser a origem exata do seu GitHub Pages, sem barra no final, por exemplo `https://seu-usuario.github.io`.
-- CORS não é autenticação. A proteção de acesso remoto é feita pelo Tailscale e pelas regras do tailnet.
-- Os navegadores não reproduzem todos os formatos. MP4 com vídeo H.264 e áudio AAC costuma ter melhor compatibilidade; MKV/AVI podem não tocar em alguns navegadores.
-- Não exponha a porta 8765 diretamente à internet.
+## Security and limitations
+- Published galleries are public: anyone can view and download files in those selected folders. Never publish private folders.
+- The admin password is checked by the NAS, not JavaScript. The frontend stores a short-lived bearer token in sessionStorage (8 hours); log out on shared devices.
+- Login is rate-limited per source IP in the app. Consider Cloudflare rate limiting/Access rules too.
+- Rename/delete endpoints are implemented and password-protected, but file-level controls are not yet exposed in this first admin UI. The initial UI manages galleries and appearance.
+- File deletion is permanent. Keep NAS backups.
+- The API paginates 40 files per request; it currently scans the selected folder to determine pages. For huge folders, use an indexed media database in a later version.
+- Browser codec support varies. MP4/H.264 + AAC has broad compatibility; MKV/AVI may not play.
