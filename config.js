@@ -1,2 +1,3 @@
-// Public API address only. Never put the admin password here.
-window.NAS_GALLERY_CONFIG={API_BASE:"https://YOUR-PUBLIC-API-HOSTNAME"};
+window.NAS_CONFIG = {
+  API_BASE: "https://as1102tl-b6d5.taile10636.ts.net"
+};
